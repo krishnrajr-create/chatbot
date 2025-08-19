@@ -12,14 +12,23 @@ app.secret_key = "supersecretkey"  # Use a strong secret key in production
 # Get Groq API key from environment variable (safer for production)
 API_KEY = os.environ.get("GROQ_API_KEY")
 
+# Debug: Print API key status (without exposing the actual key)
+if API_KEY:
+    print(f"API key found: {API_KEY[:10]}...")
+else:
+    print("No API key found in environment variables")
+
 # Initialize Groq client only if API key is available
 client = None
 if API_KEY:
     try:
         client = Groq(api_key=API_KEY)
+        print("Groq client initialized successfully")
     except Exception as e:
         print(f"Error initializing Groq client: {e}")
         client = None
+else:
+    print("No API key available - chatbot will be disabled")
 
 def chatbot_response(messages):
     """
@@ -143,6 +152,20 @@ def pricing_page():
 @app.route("/contact")
 def contact_page():
     return render_template("contact.html")
+
+
+@app.route("/debug")
+def debug_info():
+    """Debug endpoint to check environment variables and client status"""
+    return jsonify({
+        "api_key_set": bool(API_KEY),
+        "api_key_length": len(API_KEY) if API_KEY else 0,
+        "client_initialized": client is not None,
+        "environment_vars": {
+            "GROQ_API_KEY": "SET" if API_KEY else "NOT SET"
+        }
+    })
+
 
 # For Vercel deployment
 if __name__ == "__main__":
