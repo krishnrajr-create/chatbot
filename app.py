@@ -11,29 +11,41 @@ app.secret_key = "supersecretkey"  # Use a strong secret key in production
 
 # Get Groq API key from environment variable (safer for production)
 API_KEY = os.environ.get("GROQ_API_KEY")
-if not API_KEY:
-    raise ValueError("Please set the GROQ_API_KEY environment variable!")
 
-client = Groq(api_key=API_KEY)
+# Initialize Groq client only if API key is available
+client = None
+if API_KEY:
+    try:
+        client = Groq(api_key=API_KEY)
+    except Exception as e:
+        print(f"Error initializing Groq client: {e}")
+        client = None
 
 def chatbot_response(messages):
     """
     messages: List of {"role": "user"/"assistant", "content": "..."}
     """
-    response = client.chat.completions.create(
-        model="llama3-8b-8192",
-        messages=[
-            {"role": "system", 
-             "content": (
-                 "You are an expert courier assistant. "
-                 "Answer questions about package tracking, delivery schedules, pricing, and customer support. "
-                 "Be polite, helpful, and do not answer unrelated questions."
-             )
-            },
-            *messages
-        ]
-    )
-    return response.choices[0].message.content
+    if not client:
+        return "I'm sorry, the chatbot service is currently unavailable. Please try again later or contact support."
+    
+    try:
+        response = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[
+                {"role": "system", 
+                 "content": (
+                     "You are an expert courier assistant. "
+                     "Answer questions about package tracking, delivery schedules, pricing, and customer support. "
+                     "Be polite, helpful, and do not answer unrelated questions."
+                 )
+                },
+                *messages
+            ]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"Error in chatbot response: {e}")
+        return "I'm sorry, I'm having trouble processing your request right now. Please try again later."
 
 @app.route("/")
 def home():
@@ -132,5 +144,6 @@ def pricing_page():
 def contact_page():
     return render_template("contact.html")
 
+# For Vercel deployment
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
