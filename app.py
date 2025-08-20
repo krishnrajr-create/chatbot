@@ -9,14 +9,34 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = "supersecretkey"  # Use a strong secret key in production
 
+def _get_groq_api_key() -> str | None:
+    """Return the first available Groq API key from common env var names.
+
+    This makes deployment more resilient if the key was saved under a slightly different
+    name (e.g., GROQ_KEY or NEXT_PUBLIC_GROQ_API_KEY).
+    """
+    candidate_names = [
+        "GROQ_API_KEY",
+        "GROQ_KEY",
+        "GROQAPIKEY",
+        "GROQ_APIKEY",
+        "NEXT_PUBLIC_GROQ_API_KEY",  # not recommended, but sometimes used
+        "GROQ_TOKEN",
+    ]
+    for name in candidate_names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
 # Get Groq API key from environment variable (safer for production)
-API_KEY = os.environ.get("GROQ_API_KEY")
+API_KEY = _get_groq_api_key()
 
 # Debug: Print API key status (without exposing the actual key)
 if API_KEY:
     print(f"API key found: {API_KEY[:10]}...")
 else:
-    print("No API key found in environment variables")
+    print("No API key found in environment variables (checked GROQ_API_KEY, GROQ_KEY, GROQAPIKEY, GROQ_APIKEY, NEXT_PUBLIC_GROQ_API_KEY, GROQ_TOKEN)")
 
 # Initialize Groq client only if API key is available
 client = None
@@ -157,13 +177,22 @@ def contact_page():
 @app.route("/debug")
 def debug_info():
     """Debug endpoint to check environment variables and client status"""
+    env_candidates = [
+        "GROQ_API_KEY",
+        "GROQ_KEY",
+        "GROQAPIKEY",
+        "GROQ_APIKEY",
+        "NEXT_PUBLIC_GROQ_API_KEY",
+        "GROQ_TOKEN",
+    ]
+    env_presence = {name: ("SET" if os.environ.get(name) else "NOT SET") for name in env_candidates}
     return jsonify({
         "api_key_set": bool(API_KEY),
         "api_key_length": len(API_KEY) if API_KEY else 0,
         "client_initialized": client is not None,
-        "environment_vars": {
-            "GROQ_API_KEY": "SET" if API_KEY else "NOT SET"
-        }
+        "python_version": os.environ.get("PYTHON_VERSION", "unknown"),
+        "vercel_env": os.environ.get("VERCEL_ENV", "unknown"),
+        "environment_vars": env_presence,
     })
 
 
